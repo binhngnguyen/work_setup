@@ -11,13 +11,19 @@ sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 800 --slave /
 echo "Installing vim"
 sudo apt install -y vim
 sudo apt install -y vim-gnome
+sudo apt install -y neovim
+
+echo "Installing curl"
+sudo apt install -y curl
+
+echo "Installing vim-plugin"
+curl -fLo ~/.local/share/nvim/site/autoload/plug.vim --create-dirs \
+    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+mkdir -p ~/.config/nvim
+sudo ln -sf $HOME/work_setup/vimrc ~/.config/nvim/init.vim
 
 echo "Installing vim setup"
-VIM_PATH=$HOME/.vim
-git clone https://github.com/binhnn1/vimsetup.git $VIM_PATH
-
-echo "Install Vundle"
-git clone https://github.com/VundleVim/Vundle.vim.git $VIM_PATH/bundle/Vundle.vim
+WORK_SETUP_PATH=$HOME/work_setup
 
 echo "Installing zsh"
 sudo apt install -y zsh
@@ -27,43 +33,37 @@ echo "Installing ohmyzsh"
 sh -c "$(wget -O- https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 echo "Installing powerlevel10k theme for ohmyzsh"
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $VIM_PATH/zsh/powerlevel10k
-sudo ln -sf $VIM_PATH/zsh/powerlevel10k/ $HOME/.oh-my-zsh/custom/themes/powerlevel10k
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $WORK_SETUP_PATH/zsh/powerlevel10k
+sudo ln -sf $WORK_SETUP_PATH/zsh/powerlevel10k/ $HOME/.oh-my-zsh/custom/themes/powerlevel10k
 
 echo "Customizing aliases for zsh"
-sudo ln -sf $VIM_PATH/custom/aliases.zsh $ZSH_CUSTOM/aliases.zsh
+sudo ln -sf $WORK_SETUP_PATH/custom/aliases.zsh $ZSH_CUSTOM/aliases.zsh
 
-sudo ln -sf $VIM_PATH/vimrc $HOME/.vimrc
-sudo ln -sf $VIM_PATH/gitconf/gitconfig $HOME/.gitconfig
-sudo ln -sf $VIM_PATH/gitconf/git_commit_msg $HOME/.git_commit_msg
+sudo ln -sf $WORK_SETUP_PATH/vimrc $HOME/.vimrc
+sudo ln -sf $WORK_SETUP_PATH/gitconf/gitconfig $HOME/.gitconfig
+sudo ln -sf $WORK_SETUP_PATH/gitconf/git_commit_msg $HOME/.git_commit_msg
 
 
 echo "Installing dracula theme for terminal"
 sudo apt install -y dconf-cli
-git clone https://github.com/dracula/gnome-terminal $VIM_PATH/gnome-terminal
-cd $VIM_PATH/gnome-terminal
+git clone https://github.com/dracula/gnome-terminal $WORK_SETUP_PATH/gnome-terminal
+cd $WORK_SETUP_PATH/gnome-terminal
 ./install.sh
 
 echo "Installing Meslo Nerd Font patched for powerlevel10k"
 FONT_PATH=/usr/share/fonts/truetype/
 sudo mkdir -p $FONT_PATH
-sudo cp $VIM_PATH/zsh/MesloFont/*.ttf $FONT_PATH
+sudo cp $WORK_SETUP_PATH/zsh/MesloFont/*.ttf $FONT_PATH
 sudo fc-cache -f
 #Use Meslo font by Open Terminal → Preferences and click on the selected profile under Profiles. Check Custom font under Text Appearance and select MesloLGS NF Regular
 
 
 echo "Installing fzf"
-$VIM_PATH/bundle/fzf/install
-
-echo "Installing YouCompleteMe"
-python3 $VIM_PATH/bundle/YouCompleteMe/install.py --clang-completer --clangd-completer
+git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+~/.fzf/install
 
 echo "Install xclip"
 sudo apt install -y xclip
-
-#echo "Installing ctags"
-#sudo apt install -y ctags
-
 
 echo
 echo
@@ -71,9 +71,9 @@ echo **************************************
 echo "Finished Installing. Run the Following:"
 echo "1. sudo ln -sf ~/.vim/zsh/zshrc ~/.zshrc"
 echo "2. Log out / Log in"
-echo "3. sudo vim. :PluginInstall"
+echo "3. sudo vim. :PlugInstall"
 echo "4. p10k configure"
-echo "5. run ctags -R in project dir"
 echo **************************************
 echo
 echo
+echo "TODO: Install coc, ccls"
