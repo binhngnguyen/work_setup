@@ -1,0 +1,236 @@
+version: "3.6"
+volumes:
+  etc_pihole-unbound:
+  etc_pihole_dnsmasq-unbound:
+
+services:
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce:latest
+    ports:
+      - 9000:9000
+    restart: always
+    command: -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${STORAGE_DIR}/portainer/data:/data
+    environment:
+      - TZ=${TZ}
+
+  organizr:
+    container_name: organizr
+    image: organizr/organizr:latest
+    ports:
+      - 81:80
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${DOCKER_CONFIG}/organizr:/config
+      - ${STORAGE_DIR}:/storage
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
+  pihole:
+    container_name: pihole
+    image: cbcrowe/pihole-unbound:latest
+    hostname: ${HOSTNAME}
+    domainname: ${DOMAIN_NAME}
+    ports:
+      - 443:443/tcp
+      - ${ServerIP}:53:53/tcp
+      - ${ServerIP}:53:53/udp
+      - 80:80/tcp
+      - 5335:5335/tcp # Uncomment to enable unbound access on local server
+      - 22/tcp # Uncomment to enable SSH
+    restart: unless-stopped
+    volumes:
+      - etc_pihole-unbound:/etc/pihole:rw
+      - etc_pihole_dnsmasq-unbound:/etc/dnsmasq.d:rw
+      #- ./resolv.conf:/etc/resolv.conf:ro
+    environment:
+      ServerIP: ${ServerIP}
+      TZ: ${TZ}
+      WEBPASSWORD: ${WEBPASSWORD}
+      REV_SERVER: ${REV_SERVER}
+      REV_SERVER_TARGET: ${REV_SERVER_TARGET}
+      REV_SERVER_DOMAIN: ${REV_SERVER_DOMAIN}
+      REV_SERVER_CIDR: ${REV_SERVER_CIDR}
+      DNS1: 127.0.0.1#5335 # Hardcoded to our Unbound server
+      DNS2: 127.0.0.1#5335 # Hardcoded to our Unbound server
+      DNSSEC: "true" # Enable DNSSEC
+
+  vpn:
+    container_name: vpn
+    image: dperson/openvpn-client:latest
+    cap_add:
+      - net_admin # required to modify network interfaces
+    ports:
+      - 8112:8112 # port for deluge web UI to be reachable from local network
+      - 9117:9117 # Jackett
+    restart: always
+    volumes:
+      - /dev/net:/dev/net:z # tun device
+      - ${DOCKER_CONFIG}/vpn:/vpn # OpenVPN configuration
+    security_opt:
+      - label:disable
+    #command: '-f "" -r 192.168.1.0/24' # enable firewall and route local network traffic
+    command: '-f "" -r 192.168.254.0/24' # enable firewall and route local network traffic
+
+  deluge:
+    container_name: deluge
+    image: linuxserver/deluge:latest
+    depends_on:
+      - vpn
+    network_mode: service:vpn # run on the vpn network
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${DOCKER_CONFIG}/deluge:/config
+      - ${STORAGE_DIR}:/storage
+    environment:
+      - PUID=${PUID} # default user id, defined in .env
+      - PGID=${PGID} # default group id, defined in .env
+      - TZ=${TZ} # timezone, defined in .env
+
+  jackett:
+    container_name: jackett
+    image: linuxserver/jackett:latest
+    depends_on:
+      - vpn
+    network_mode: service:vpn # run on the vpn network
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${DOCKER_CONFIG}/jackett:/config
+      - ${STORAGE_DIR}:/storage
+    environment:
+      - PUID=${PUID} # default user id, defined in .env
+      - PGID=${PGID} # default group id, defined in .env
+      - TZ=${TZ} # timezone, defined in .env
+
+  sonarr:
+    container_name: sonarr
+    image: linuxserver/sonarr:latest
+    network_mode: host
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${DOCKER_CONFIG}/sonarr:/config
+      - ${STORAGE_DIR}:/storage
+      - ${LEGACY_STORAGE_DIR}:/legacy_storage
+    environment:
+      - PUID=${PUID} # default user id, defined in .env
+      - PGID=${PGID} # default group id, defined in .env
+      - TZ=${TZ} # timezone, defined in .env
+
+  radarr:
+    container_name: radarr
+    image: linuxserver/radarr:latest
+    network_mode: host
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${DOCKER_CONFIG}/radarr:/config
+      - ${STORAGE_DIR}:/storage
+      - ${LEGACY_STORAGE_DIR}:/legacy_storage
+    environment:
+      - PUID=${PUID} # default user id, defined in .env
+      - PGID=${PGID} # default group id, defined in .env
+      - TZ=${TZ} # timezone, defined in .env
+
+  plex-server:
+    container_name: plex-server
+    image: plexinc/pms-docker:latest
+    network_mode: host
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${DOCKER_CONFIG}/plex:/config
+      - ${STORAGE_DIR}:/storage
+      - ${LEGACY_STORAGE_DIR}:/legacy_storage
+    environment:
+      - PUID=${PUID} # default user id, defined in .env
+      - PGID=${PGID} # default group id, defined in .env
+      - TZ=${TZ} # timezone, defined in .env
+
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower
+    network_mode: host
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${STORAGE_DIR}:/storage
+    environment:
+      - TZ=${TZ} # timezone, defined in .env
+      - WATCHTOWER_MONITOR_ONLY=true
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE= 0 0 04 * * * #At 04:00 AM everyday
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+
+  tautulli:
+    container_name: tautulli
+    image: lscr.io/linuxserver/tautulli
+    network_mode: host
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${DOCKER_CONFIG}/tautulli:/config
+      - ${STORAGE_DIR}:/storage
+    environment:
+      - PUID=${PUID} # default user id, defined in .env
+      - PGID=${PGID} # default group id, defined in .env
+      - TZ=${TZ} # timezone, defined in .env
+
+  hydra:
+    container_name: nzbhydra2
+    image: lscr.io/linuxserver/nzbhydra2:latest
+    network_mode: host
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${DOCKER_CONFIG}/hydra:/config
+      - ${STORAGE_DIR}:/storage
+    environment:
+      - PUID=${PUID} # default user id, defined in .env
+      - PGID=${PGID} # default group id, defined in .env
+      - TZ=${TZ} # timezone, defined in .env
+
+  speedtest:
+    container_name: speedtest
+    image: henrywhitaker3/speedtest-tracker:latest
+    ports:
+      - 8765:80
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${DOCKER_CONFIG}/speedtest:/config
+      - ${STORAGE_DIR}:/storage
+    environment:
+      - PUID=${PUID} # default user id, defined in .env
+      - PGID=${PGID} # default group id, defined in .env
+      - TZ=${TZ} # timezone, defined in .env
+      - OOKLA_EULA_GDPR=true
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "10"
+        max-size: "200k"
+
+  bazarr:
+    container_name: bazarr
+    image: lscr.io/linuxserver/bazarr:latest
+    network_mode: host
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${DOCKER_CONFIG}/bazarr:/config
+      - ${STORAGE_DIR}:/storage
+    environment:
+      - PUID=${PUID} # default user id, defined in .env
+      - PGID=${PGID} # default group id, defined in .env
+      - TZ=${TZ} # timezone, defined in .env
+    restart: always
