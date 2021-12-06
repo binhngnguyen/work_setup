@@ -1,7 +1,10 @@
-version: "3.6"
+version: "3.8"
 volumes:
   etc_pihole-unbound:
   etc_pihole_dnsmasq-unbound:
+  netdataconfig:
+  netdatalib:
+  netdatacache:
 
 services:
   portainer:
@@ -199,27 +202,6 @@ services:
       - PGID=${PGID} # default group id, defined in .env
       - TZ=${TZ} # timezone, defined in .env
 
-  speedtest:
-    container_name: speedtest
-    image: henrywhitaker3/speedtest-tracker:latest
-    ports:
-      - 8765:80
-    restart: always
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - ${DOCKER_CONFIG}/speedtest:/config
-      - ${STORAGE_DIR}:/storage
-    environment:
-      - PUID=${PUID} # default user id, defined in .env
-      - PGID=${PGID} # default group id, defined in .env
-      - TZ=${TZ} # timezone, defined in .env
-      - OOKLA_EULA_GDPR=true
-    logging:
-      driver: "json-file"
-      options:
-        max-file: "10"
-        max-size: "200k"
-
   bazarr:
     container_name: bazarr
     image: lscr.io/linuxserver/bazarr:latest
@@ -229,6 +211,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ${DOCKER_CONFIG}/bazarr:/config
       - ${STORAGE_DIR}:/storage
+      - ${LEGACY_STORAGE_DIR}:/legacy_storage
     environment:
       - PUID=${PUID} # default user id, defined in .env
       - PGID=${PGID} # default group id, defined in .env
@@ -244,3 +227,25 @@ services:
     restart: unless-stopped
     privileged: true
     network_mode: host
+
+  netdata:
+    container_name: netdata
+    image: netdata/netdata
+    hostname: ${HOSTNAME}
+    ports:
+      - 19999:19999
+    restart: unless-stopped
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - netdataconfig:/etc/netdata
+      - netdatalib:/var/lib/netdata
+      - netdatacache:/var/cache/netdata
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /etc/localtime:/etc/localtime:ro
