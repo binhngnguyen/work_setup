@@ -51,7 +51,6 @@ services:
     volumes:
       - etc_pihole-unbound:/etc/pihole:rw
       - etc_pihole_dnsmasq-unbound:/etc/dnsmasq.d:rw
-      #- ./resolv.conf:/etc/resolv.conf:ro
     environment:
       ServerIP: ${ServerIP}
       TZ: ${TZ}
@@ -270,6 +269,6 @@ services:
       - PGID=${PGID} # default group id, defined in .env
       - TZ=${TZ} # timezone, defined in .env
       - SERVERPORT=51820
-      - PEERS=1
+      - PEERS=1,2
       - INTERNAL_SUBNET=192.168.254.0
       - ALLOWEDIPS=0.0.0.0/0
