@@ -1,10 +1,17 @@
 version: "3.8"
 volumes:
-  etc_pihole-unbound:
-  etc_pihole_dnsmasq-unbound:
+  etc_pihole:
+  etc_pihole_dnsmasq:
   netdataconfig:
   netdatalib:
   netdatacache:
+
+networks:
+  dns_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
 
 services:
   portainer:
@@ -35,9 +42,28 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
 
+  unbound:
+    container_name: unbound
+    image: mvance/unbound:latest
+    networks:
+      dns_net:
+        ipv4_address: 172.20.0.7
+    volumes:
+      - ${DOCKER_CONFIG}/unbound:/opt/unbound/etc/unbound
+      - ./unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf
+    ports:
+      - 5053:5053/tcp
+      - 5053:5053/udp
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
   pihole:
     container_name: pihole
-    image: cbcrowe/pihole-unbound:latest
+    image: pihole/pihole:latest
+    networks:
+      dns_net:
+        ipv4_address: 172.20.0.6
     hostname: ${HOSTNAME}
     domainname: ${DOMAIN_NAME}
     ports:
@@ -45,23 +71,16 @@ services:
       - ${ServerIP}:53:53/tcp
       - ${ServerIP}:53:53/udp
       - 80:80/tcp
-      - 5335:5335/tcp # Uncomment to enable unbound access on local server
-      - 22/tcp # Uncomment to enable SSH
     restart: unless-stopped
     volumes:
-      - etc_pihole-unbound:/etc/pihole:rw
-      - etc_pihole_dnsmasq-unbound:/etc/dnsmasq.d:rw
+      - etc_pihole:/etc/pihole:rw
+      - etc_pihole_dnsmasq:/etc/dnsmasq.d:rw
     environment:
       ServerIP: ${ServerIP}
       TZ: ${TZ}
       WEBPASSWORD: ${WEBPASSWORD}
-      REV_SERVER: ${REV_SERVER}
-      REV_SERVER_TARGET: ${REV_SERVER_TARGET}
-      REV_SERVER_DOMAIN: ${REV_SERVER_DOMAIN}
-      REV_SERVER_CIDR: ${REV_SERVER_CIDR}
-      DNS1: 127.0.0.1#5335 # Hardcoded to our Unbound server
-      DNS2: 127.0.0.1#5335 # Hardcoded to our Unbound server
-      DNSSEC: "true" # Enable DNSSEC
+      DNS1: 172.20.0.7#5053
+      DNS2: no
 
   vpn:
     container_name: vpn
