@@ -1,0 +1,81 @@
+version: "3.8"
+volumes:
+  etc_pihole:
+  etc_pihole_dnsmasq:
+
+networks:
+  dns_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+services:
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce:latest
+    ports:
+      - 9000:9000
+    restart: always
+    command: -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${STORAGE_DIR}/portainer/data:/data
+    environment:
+      - TZ=${TZ}
+
+  unbound:
+    container_name: unbound
+    image: crazymax/unbound
+    networks:
+      dns_net:
+        ipv4_address: 172.20.0.7
+    volumes:
+      - ${DOCKER_CONFIG}/unbound:/opt/unbound/etc/unbound
+      - /home/pi/work_setup/htpc/unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf
+    ports:
+      - 5053:5053/tcp
+      - 5053:5053/udp
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    networks:
+      dns_net:
+        ipv4_address: 172.20.0.6
+    hostname: ${HOSTNAME}
+    domainname: ${DOMAIN_NAME}
+    ports:
+      - 443:443/tcp
+      - ${ServerIP}:53:53/tcp
+      - ${ServerIP}:53:53/udp
+      - 80:80/tcp
+    restart: unless-stopped
+    volumes:
+      - etc_pihole:/etc/pihole:rw
+      - etc_pihole_dnsmasq:/etc/dnsmasq.d:rw
+    environment:
+      ServerIP: ${ServerIP}
+      TZ: ${TZ}
+      WEBPASSWORD: ${WEBPASSWORD}
+      DNS1: 172.20.0.7#5053
+      DNS2: no
+
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower
+    network_mode: host
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${STORAGE_DIR}:/storage
+    environment:
+      - TZ=${TZ} # timezone, defined in .env
+      - WATCHTOWER_MONITOR_ONLY=true
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE= 0 0 04 * * * #At 04:00 AM everyday
+      - WATCHTOWER_INCLUDE_RESTARTING=true
