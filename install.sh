@@ -65,6 +65,13 @@ git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
 echo "Install xclip"
 sudo apt install -y xclip
 
+echo "Installing tmux"
+sudo apt install -y tmux
+
+echo "Installing tpm (Tmux Plugin Manager)"
+git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+sudo ln -sf $WORK_SETUP_PATH/tmux.conf $HOME/.tmux.conf
+
 echo
 echo
 echo **************************************
@@ -73,6 +80,7 @@ echo "1. sudo ln -sf ~/.vim/zsh/zshrc ~/.zshrc"
 echo "2. Log out / Log in"
 echo "3. sudo vim. :PlugInstall"
 echo "4. p10k configure"
+echo "5. tmux, then prefix + I to install tmux plugins"
 echo **************************************
 echo
 echo
