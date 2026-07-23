@@ -119,3 +119,4 @@ prompt_context() {}
 
 #Custom scripts
 VIM_PATH=$HOME/.vim
+export PATH="$HOME/.local/bin:$PATH"
